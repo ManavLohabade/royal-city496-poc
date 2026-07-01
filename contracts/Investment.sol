@@ -71,4 +71,8 @@ contract Investment {
     function getInvestorCount() external view returns (uint256) {
         return investorAddresses.length;
     }
+
+    function getTotalInvested() external view returns (uint256) {
+        return totalInvested;
+    }
 }
