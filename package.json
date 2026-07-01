@@ -21,7 +21,6 @@
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "ethers": "^5.6.9",
     "express": "^4.19.2",
     "express-fileupload": "^1.5.0",
     "framer-motion": "^12.9.4",
@@ -72,11 +71,14 @@
     ]
   },
   "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
     "@vitejs/plugin-react": "^5.1.0",
     "assert": "^2.0.0",
     "autoprefixer": "^10.4.21",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.0",
+    "ethers": "^5.8.0",
+    "hardhat": "^3.9.0",
     "https-browserify": "^1.0.0",
     "os-browserify": "^0.3.0",
     "postcss": "^8.5.6",
