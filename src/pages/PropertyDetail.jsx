@@ -1,11 +1,26 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiHome, FiMaximize2, FiCalendar, FiTrendingUp, FiUsers, FiDollarSign, FiGrid } from 'react-icons/fi';
 import { FacebookShareButton, TwitterShareButton, LinkedinShareButton } from 'react-share';
-import { FaFacebook, FaTwitter, FaLinkedin, FaEthereum, FaWallet } from 'react-icons/fa';
+import { FaFacebook, FaTwitter, FaLinkedin, FaEthereum, FaWallet, FaCheckCircle } from 'react-icons/fa';
+import { ethers } from 'ethers';
+
+const CONTRACT_ADDRESS = "0xd59C63D93cBADF62A8617E09153B337F75BCFd9b";
+const CONTRACT_ABI = [
+  "function invest() external payable",
+  "function getTotalInvested() external view returns (uint256)",
+  "function getInvestorCount() external view returns (uint256)"
+];
 
 function PropertyDetail() {
   const { id } = useParams();
+
+  const [account, setAccount] = useState('');
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [investmentAmount, setInvestmentAmount] = useState('');
+  const [txStatus, setTxStatus] = useState(''); // 'idle', 'loading', 'success', 'error'
+  const [errorMessage, setErrorMessage] = useState('');
 
   const property = {
     id: parseInt(id),
@@ -75,6 +90,70 @@ function PropertyDetail() {
 
   const shareUrl = window.location.href;
 
+  const getProvider = () => {
+    if (window.ethereum?.providers) {
+      // Some wallets like Phantom spoof isMetaMask. We exclude them.
+      return window.ethereum.providers.find(p => p.isMetaMask && !p.isPhantom) || window.ethereum;
+    }
+    return window.ethereum;
+  };
+
+  const connectWallet = async () => {
+    const provider = getProvider();
+    if (provider) {
+      try {
+        setIsConnecting(true);
+        const accounts = await provider.request({ method: 'eth_requestAccounts' });
+        setAccount(accounts[0]);
+      } catch (error) {
+        console.error("Error connecting to MetaMask:", error);
+        setErrorMessage(error.message || "Failed to connect wallet.");
+      } finally {
+        setIsConnecting(false);
+      }
+    } else {
+      alert("Please install MetaMask!");
+    }
+  };
+
+  const handleInvest = async () => {
+    if (!investmentAmount || isNaN(investmentAmount) || Number(investmentAmount) <= 0) {
+      setErrorMessage("Please enter a valid ETH amount");
+      return;
+    }
+
+    setErrorMessage('');
+    setTxStatus('loading');
+
+    try {
+      const rawProvider = getProvider();
+
+      // Force MetaMask to switch to Sepolia BEFORE wrapping it with Ethers to prevent network change errors
+      try {
+        await rawProvider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0xaa36a7" }] });
+      } catch (switchError) {
+        console.error("Network switch error:", switchError);
+      }
+
+      // Pass "any" so Ethers doesn't crash if the network changes dynamically
+      const provider = new ethers.providers.Web3Provider(rawProvider, "any");
+      const signer = provider.getSigner();
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+      const tx = await contract.invest({
+        value: ethers.utils.parseEther(investmentAmount)
+      });
+
+      await tx.wait();
+      setTxStatus('success');
+      setInvestmentAmount('');
+    } catch (error) {
+      console.error(error);
+      setErrorMessage("Transaction failed. Check console for details.");
+      setTxStatus('error');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-secondary-50">
       {/* Navigation */}
@@ -130,10 +209,9 @@ function PropertyDetail() {
             >
               <h2 className="text-2xl font-bold mb-4">Property Details</h2>
               <p className="text-secondary-600 mb-6">{property.description}</p>
-              
+
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="flex items-center space-x-2">
-                  {/* <FiBed className="text-primary-600" /> */}
                   <span>{property.parkingSpaces} Parking</span>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -182,7 +260,7 @@ function PropertyDetail() {
                   </div>
                   <div className="col-span-2">
                     <p className="text-sm text-secondary-600">Smart Contract</p>
-                    <p className="font-mono text-sm">{property.tokenDetails.contractAddress}</p>
+                    <p className="font-mono text-sm">{CONTRACT_ADDRESS}</p>
                   </div>
                 </div>
               </div>
@@ -280,7 +358,7 @@ function PropertyDetail() {
                   Min Investment: {property.metrics.minInvestment}
                 </p>
               </div>
-              
+
               <Link
                 to={`/property-3d`}
                 className="btn w-full mb-4 flex items-center justify-center">
@@ -288,11 +366,65 @@ function PropertyDetail() {
                 View 3D version
               </Link>
 
-              <button className="btn w-full mb-4 flex items-center justify-center">
-                <FaWallet className="mr-2" />
-                Connect Wallet to Invest
-              </button>
-              
+              {/* Web3 Integration Section */}
+              <div className="p-4 bg-gray-50 rounded-lg mb-4 border border-gray-200">
+                {!account ? (
+                  <button
+                    onClick={connectWallet}
+                    disabled={isConnecting}
+                    className="btn w-full flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <FaWallet className="mr-2" />
+                    {isConnecting ? "Connecting..." : "Connect MetaMask to Invest"}
+                  </button>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between text-sm bg-white p-2 rounded border">
+                      <span className="text-gray-500">Connected</span>
+                      <span className="font-mono font-medium text-blue-600">
+                        {account.slice(0, 6)}...{account.slice(-4)}
+                      </span>
+                    </div>
+
+                    {txStatus === 'success' && (
+                      <div className="flex items-center p-3 bg-green-100 text-green-700 rounded text-sm">
+                        <FaCheckCircle className="mr-2 text-lg" />
+                        Investment successful!
+                      </div>
+                    )}
+
+                    {errorMessage && (
+                      <div className="p-2 text-sm text-red-600 bg-red-50 rounded">
+                        {errorMessage}
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Amount to Invest (ETH)
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="0.1"
+                        value={investmentAmount}
+                        onChange={(e) => setInvestmentAmount(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        min="0.01"
+                        step="0.01"
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleInvest}
+                      disabled={txStatus === 'loading'}
+                      className={`btn w-full flex items-center justify-center ${txStatus === 'loading' ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    >
+                      {txStatus === 'loading' ? "Processing..." : "Invest Now"}
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center justify-center space-x-4 pt-4 border-t">
                 <FacebookShareButton url={shareUrl}>
                   <FaFacebook className="text-2xl text-blue-600 hover:opacity-80" />
