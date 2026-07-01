@@ -74,7 +74,7 @@ This project includes a fully functional **Investment Smart Contract** integrate
 ```
 
 ### Demo Video
-- **Loom Video**: [Insert your Loom link here](https://www.loom.com/share/YOUR-LOOM-LINK)
+- **Loom Video**: [Loom demo link](https://www.loom.com/share/YOUR-LOOM-LINK)
 
 ---
 
