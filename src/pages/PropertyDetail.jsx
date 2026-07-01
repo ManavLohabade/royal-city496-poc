@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiHome, FiMaximize2, FiCalendar, FiTrendingUp, FiUsers, FiDollarSign, FiGrid } from 'react-icons/fi';
@@ -104,7 +104,7 @@ function PropertyDetail() {
       try {
         setIsConnecting(true);
         const accounts = await provider.request({ method: 'eth_requestAccounts' });
-        setAccount(accounts[0]);
+        if (accounts.length > 0) setAccount(accounts[0]);
       } catch (error) {
         console.error("Error connecting to MetaMask:", error);
         setErrorMessage(error.message || "Failed to connect wallet.");
@@ -115,6 +115,24 @@ function PropertyDetail() {
       alert("Please install MetaMask!");
     }
   };
+
+  useEffect(() => {
+    const checkConnection = async () => {
+      const provider = getProvider();
+      if (provider) {
+        try {
+          // eth_accounts returns an array of addresses if connected, without prompting the user
+          const accounts = await provider.request({ method: 'eth_accounts' });
+          if (accounts.length > 0) {
+            setAccount(accounts[0]);
+          }
+        } catch (error) {
+          console.error("Error checking connection:", error);
+        }
+      }
+    };
+    checkConnection();
+  }, []);
 
   const handleInvest = async () => {
     if (!investmentAmount || isNaN(investmentAmount) || Number(investmentAmount) <= 0) {
